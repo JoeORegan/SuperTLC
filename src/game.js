@@ -60,6 +60,9 @@ export class Game {
         this.touchY = 0;
         this.autoFireTimer = 0;
         this.autoFireInterval = 0.18;
+
+        this.enemy1Image = null;
+        this.enemy2Image = null;
     }
 
     keyPressedAny(...keys) {
@@ -70,16 +73,29 @@ export class Game {
         return this.keyPressedAny(" ", "space", "Space", "spacebar");
     }
 
+    initEnemyVisuals(enemy) {
+        enemy.__enemyImage = Math.random() < 0.5 ? this.enemy1Image : this.enemy2Image;
+        enemy.scale = 0.6 + Math.random() * 1.4;
+        enemy.__rot = Math.random() * Math.PI * 2;
+        const dir = Math.random() < 0.5 ? -1 : 1;
+        enemy.__rotSpeed = dir * (0.8 + Math.random() * 2.2); // radians/sec
+    }
+
     async start() {
-        const [atlas, playerImage, spacedust, galaxy, planetsunrise, anomaly1, anomaly2] = await Promise.all([
+        const [atlas, playerImage, enemy1Image, enemy2Image, spacedust, galaxy, planetsunrise, anomaly1, anomaly2] = await Promise.all([
             loadPlistAtlas("./assets/images/sprites/spritesheet.png", "./assets/images/sprites/Sprites.plist"),
             loadImage("./assets/images/sprites/player.png"),
+            loadImage("./assets/images/sprites/enemy1.png"),
+            loadImage("./assets/images/sprites/enemy2.png"),
             loadImage("./assets/images/backgrounds/bg_front_spacedust.png"),
             loadImage("./assets/images/backgrounds/bg_galaxy.png"),
             loadImage("./assets/images/backgrounds/bg_planetsunrise.png"),
             loadImage("./assets/images/backgrounds/bg_spacialanomaly.png"),
             loadImage("./assets/images/backgrounds/bg_spacialanomaly2.png")
         ]);
+
+        this.enemy1Image = enemy1Image;
+        this.enemy2Image = enemy2Image;
 
         const [s1, s2, s3] = await Promise.all([
             loadStarEmitterConfig("./assets/particles/Stars1.plist"),
@@ -106,19 +122,35 @@ export class Game {
 
         this.atlas = atlas;
         const keys = Object.keys(this.atlas.frames || {});
-        const asteroidKey = keys.find((k) => k === "asteroid.png") || keys.find((k) => /asteroid/i.test(k));
         const laserKey =
             keys.find((k) => k === "laserbeam_blue.png") ||
             keys.find((k) => /laserbeam_blue/i.test(k)) ||
             keys.find((k) => /laser/i.test(k));
 
-        if (!asteroidKey) throw new Error("Asteroid frame not found in Sprites.plist");
         if (!laserKey) throw new Error("Laser frame not found in Sprites.plist");
 
         this.asteroidField = new AsteroidField({
-            atlasImage: this.atlas.image,
-            asteroidFrame: this.atlas.frames[asteroidKey]
+            atlasImage: enemy1Image,
+            asteroidFrame: { x: 0, y: 0, w: enemy1Image.width || 64, h: enemy1Image.height || 64 }
         });
+
+        for (const e of this.asteroidField.pool) {
+            this.initEnemyVisuals(e);
+        }
+
+        const originalSpawn = this.asteroidField.spawn?.bind(this.asteroidField);
+        if (originalSpawn) {
+            this.asteroidField.spawn = (...args) => {
+                const beforeStates = this.asteroidField.pool.map((p) => p.active);
+                originalSpawn(...args);
+                for (let i = 0; i < this.asteroidField.pool.length; i++) {
+                    const p = this.asteroidField.pool[i];
+                    if (!beforeStates[i] && p.active) {
+                        this.initEnemyVisuals(p);
+                    }
+                }
+            };
+        }
 
         this.lasers = new LaserPool({
             atlasImage: this.atlas.image,
@@ -202,7 +234,10 @@ export class Game {
         this.ship.y = this.canvas.height * 0.5;
 
         if (this.asteroidField) {
-            for (const a of this.asteroidField.pool) a.active = false;
+            for (const e of this.asteroidField.pool) {
+                e.active = false;
+                this.initEnemyVisuals(e);
+            }
             this.asteroidField.nextIndex = 0;
             this.asteroidField.scheduleNext(nowSec);
         }
@@ -300,26 +335,34 @@ export class Game {
         if (this.asteroidField) this.asteroidField.update(dt, nowSec, this.canvas.width, this.canvas.height);
         if (this.lasers) this.lasers.update(dt, this.canvas.width);
 
+        if (this.asteroidField) {
+            for (const e of this.asteroidField.pool) {
+                if (!e.active) continue;
+                const spin = Number.isFinite(e.__rotSpeed) ? e.__rotSpeed : 0;
+                e.__rot = (Number.isFinite(e.__rot) ? e.__rot : 0) + spin * dt;
+            }
+        }
+
         if (this.asteroidField && this.lasers) {
-            const asteroids = this.asteroidField.getActive();
+            const enemies = this.asteroidField.getActive();
             const lasers = this.lasers.getActive();
 
-            for (const a of asteroids) {
-                if (!a.active) continue;
-                const aa = a.getAABB();
+            for (const e of enemies) {
+                if (!e.active) continue;
+                const ea = e.getAABB();
 
                 for (const l of lasers) {
                     if (!l.active) continue;
-                    if (intersects(aa, l.getAABB())) {
-                        a.active = false;
+                    if (intersects(ea, l.getAABB())) {
+                        e.active = false;
                         l.active = false;
                         this.audio.playEffect("explosion");
                         break;
                     }
                 }
 
-                if (a.active && nowSec >= this.shipInvulnUntil && intersects(aa, this.getShipAABB())) {
-                    a.active = false;
+                if (e.active && nowSec >= this.shipInvulnUntil && intersects(ea, this.getShipAABB())) {
+                    e.active = false;
                     this.lives = Math.max(0, this.lives - 1);
                     this.shipInvulnUntil = nowSec + 1.0;
                     this.audio.playEffect("shipHit");
@@ -333,13 +376,38 @@ export class Game {
         this.input.endFrame();
     }
 
+    drawEnemies() {
+        if (!this.asteroidField) return;
+        const ctx = this.ctx;
+        const active = this.asteroidField.getActive();
+
+        for (const e of active) {
+            if (!e.active) continue;
+            const img = e.__enemyImage;
+            if (!img) continue;
+
+            const frameW = img.width || 64;
+            const frameH = img.height || 64;
+            const scale = Number.isFinite(e.scale) && e.scale > 0 ? e.scale : 1;
+            const w = frameW * scale;
+            const h = frameH * scale;
+            const rot = Number.isFinite(e.__rot) ? e.__rot : 0;
+
+            ctx.save();
+            ctx.translate(e.x, e.y);
+            ctx.rotate(rot);
+            ctx.drawImage(img, -w * 0.5, -h * 0.5, w, h);
+            ctx.restore();
+        }
+    }
+
     render() {
         const { ctx, canvas } = this;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         this.parallax.draw(ctx, canvas.width, canvas.height);
         this.starField.draw(ctx);
-        if (this.asteroidField) this.asteroidField.draw(ctx);
+        this.drawEnemies();
         if (this.lasers) this.lasers.draw(ctx);
 
         if (this.playerImage) {
