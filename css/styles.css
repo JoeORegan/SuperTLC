@@ -119,6 +119,7 @@ body {
     place-items: center;
     margin-top: 8px;
     width: 100%;
+    position: relative;
 }
 
 canvas {
@@ -130,6 +131,27 @@ canvas {
     display: block;
     outline: none;
     touch-action: none;
+}
+
+.fs-hud {
+    position: absolute;
+    top: max(8px, env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
+    display: none;
+    gap: 8px;
+    z-index: 50;
+    pointer-events: auto;
+}
+
+.fs-hud-btn {
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    background: rgba(10, 12, 20, 0.72);
+    color: #fff;
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 14px;
+    line-height: 1;
+    backdrop-filter: blur(4px);
 }
 
 .muted {
@@ -165,6 +187,11 @@ code {
 
     .theme-toggle {
         padding: 7px 10px;
+    }
+
+    .fs-hud-btn {
+        padding: 10px 12px;
+        font-size: 15px;
     }
 }
 

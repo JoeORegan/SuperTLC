@@ -6,5 +6,5 @@ await game.start();
 
 const resetBtn = document.getElementById("resetBtn");
 resetBtn?.addEventListener("click", () => {
-  game.resetRound();
+    game.resetRound();
 });

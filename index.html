@@ -39,6 +39,16 @@
 
       <div class="canvas-wrap" id="gameWrap">
         <canvas id="game" width="1136" height="640" tabindex="0" aria-label="Superhero Game canvas"></canvas>
+
+        <!-- Fullscreen overlay controls -->
+        <div id="fsHud" class="fs-hud" aria-hidden="true">
+          <button id="fsMenuBtn" class="fs-hud-btn" type="button" aria-label="Exit fullscreen and open menu">
+            Menu
+          </button>
+          <button id="fsExitBtn" class="fs-hud-btn" type="button" aria-label="Exit fullscreen">
+            Exit Fullscreen
+          </button>
+        </div>
       </div>
     </section>
 
@@ -49,7 +59,8 @@
         <li><b>Fire:</b> <code>Space</code> or hold touch</li>
         <li><b>Toggle Audio:</b> <code>M</code></li>
         <li><b>Debug:</b> <code>P</code></li>
-        <li><b>Fullscreen:</b> <code>Fullscreen</code> button</li>
+        <li><b>Fullscreen:</b> tap <code>Fullscreen</code>; tap <code>Menu</code> or <code>Exit Fullscreen</code> to
+          leave</li>
         <li><b>Restart:</b> <code>R</code>/<code>Enter</code> or <code>Restart</code> button</li>
       </ul>
     </section>
@@ -60,7 +71,11 @@
       const root = document.documentElement;
       const themeBtn = document.getElementById("themeToggle");
       const fsBtn = document.getElementById("fsToggle");
+      const resetBtn = document.getElementById("resetBtn");
       const gameWrap = document.getElementById("gameWrap");
+      const fsHud = document.getElementById("fsHud");
+      const fsMenuBtn = document.getElementById("fsMenuBtn");
+      const fsExitBtn = document.getElementById("fsExitBtn");
 
       const savedTheme = localStorage.getItem("superhero-theme");
       if (savedTheme === "light" || savedTheme === "dark") {
@@ -78,10 +93,20 @@
         return window.matchMedia("(max-width: 1024px)").matches || navigator.maxTouchPoints > 0;
       }
 
+      function isFullscreenNow() {
+        return !!document.fullscreenElement || !!document.webkitFullscreenElement || !!document.msFullscreenElement;
+      }
+
+      function setHudVisibility(show) {
+        fsHud.style.display = show ? "flex" : "none";
+        fsHud.setAttribute("aria-hidden", show ? "false" : "true");
+      }
+
       function updateFsButton() {
-        const inFs = !!document.fullscreenElement || !!document.webkitFullscreenElement || !!document.msFullscreenElement;
+        const inFs = isFullscreenNow();
         fsBtn.textContent = inFs ? "Exit Fullscreen" : "Fullscreen";
         fsBtn.style.display = isMobileLike() ? "inline-block" : "none";
+        setHudVisibility(inFs && isMobileLike());
       }
 
       async function requestFullscreenSafe(el) {
@@ -98,10 +123,39 @@
         throw new Error("Exit Fullscreen API not supported");
       }
 
+      async function tryLockLandscape() {
+        try {
+          if (screen.orientation && screen.orientation.lock) {
+            await screen.orientation.lock("landscape");
+          }
+        } catch {
+          // Not supported on all browsers/devices; ignore.
+        }
+      }
+
+      async function tryUnlockOrientation() {
+        try {
+          if (screen.orientation && screen.orientation.unlock) {
+            screen.orientation.unlock();
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      async function enterFullscreen() {
+        await requestFullscreenSafe(gameWrap);
+        await tryLockLandscape();
+      }
+
+      async function exitFullscreen() {
+        await exitFullscreenSafe();
+        await tryUnlockOrientation();
+      }
+
       async function toggleFullscreen() {
-        const inFs = !!document.fullscreenElement || !!document.webkitFullscreenElement || !!document.msFullscreenElement;
-        if (!inFs) await requestFullscreenSafe(gameWrap);
-        else await exitFullscreenSafe();
+        if (!isFullscreenNow()) await enterFullscreen();
+        else await exitFullscreen();
       }
 
       fsBtn?.addEventListener("click", async () => {
@@ -109,6 +163,28 @@
           await toggleFullscreen();
         } catch (err) {
           console.error("Fullscreen toggle failed:", err);
+          alert("Fullscreen may be blocked on this browser/device. Try Chrome on Android.");
+        } finally {
+          updateFsButton();
+        }
+      });
+
+      fsExitBtn?.addEventListener("click", async () => {
+        try {
+          if (isFullscreenNow()) await exitFullscreen();
+        } catch (err) {
+          console.error("Exit fullscreen failed:", err);
+        } finally {
+          updateFsButton();
+        }
+      });
+
+      fsMenuBtn?.addEventListener("click", async () => {
+        try {
+          if (isFullscreenNow()) await exitFullscreen();
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } catch (err) {
+          console.error("Menu action failed:", err);
         } finally {
           updateFsButton();
         }
@@ -119,7 +195,17 @@
       document.addEventListener("MSFullscreenChange", updateFsButton);
       window.addEventListener("resize", updateFsButton);
       window.addEventListener("orientationchange", updateFsButton);
+
       updateFsButton();
+
+      // Optional: expose helpers for game overlay button usage from canvas code if needed
+      window.__GAME_FULLSCREEN__ = {
+        isFullscreenNow,
+        exitFullscreen
+      };
+
+      // Keep reset button mobile-visible as before
+      if (resetBtn) resetBtn.style.display = isMobileLike() ? "inline-block" : "";
     })();
   </script>
 
