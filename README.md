@@ -1,8 +1,8 @@
 # Space Game JS
 
-![GitHub repo size](https://img.shields.io/github/repo-size/JoeORegan/JS-SpaceGame?style=flat-square)
-![GitHub last commit](https://img.shields.io/github/last-commit/JoeORegan/JS-SpaceGame?style=flat-square)
-![Stars](https://img.shields.io/github/stars/JoeORegan/JS-SpaceGame?style=social)
+![GitHub repo size](https://img.shields.io/github/repo-size/JoeORegan/SuperTLC?style=flat-square)
+![GitHub last commit](https://img.shields.io/github/last-commit/JoeORegan/SuperTLC?style=flat-square)
+![Stars](https://img.shields.io/github/stars/JoeORegan/SuperTLC?style=social)
 ![GitHub Pages](https://img.shields.io/badge/deployed%20on-GitHub%20Pages-222?style=flat-square)
 
 ---
@@ -15,17 +15,17 @@ Tutorial source: <https://www.kodeco.com/2728-cocos2d-x-tutorial-for-ios-and-and
 
 ## Play Online
 
-- [GitHub Pages](https://joeoregan.github.io/JS-SpaceGame/)
+- [GitHub Pages](https://joeoregan.github.io/SuperTLC/)
 
 ---
 
 ## Features
 
-- Player ship movement (keyboard)
+- Player movement (keyboard)
 - Laser shooting with object pooling
 - Asteroid spawning with pooling
 - Laser ↔ asteroid collision detection
-- Ship hit detection, lives, and invulnerability blink
+- Player hit detection, lives, and invulnerability blink
 - Win/Lose game states and restart
 - Parallax scrolling backgrounds
 - Particle starfield
@@ -93,6 +93,7 @@ assets/
     sfx/
   images/
   particles/
+css/
 src/
   audio/
   entities/
@@ -115,18 +116,7 @@ package.json
 
 ## Screenshots
 
-![Gameplay screenshot](https://github.com/JoeORegan/joeoregan.github.io/blob/main/src/assets/spacegame/cover.jpg?raw=true)
-
----
-
-## Roadmap
-
-- [ ] Explosion particle effects on asteroid hit
-- [ ] Enemy ships + enemy lasers
-- [ ] Score system + high score persistence
-- [ ] Power-ups
-- [ ] Mobile/touch controls
-- [ ] Settings panel (audio volume, difficulty)
+![TBD]()
 
 ---
 
@@ -134,6 +124,7 @@ package.json
 
 - [Antibody JavaScript](https://github.com/JoeORegan/JS-Antibody)
 - [Flappy Bird JavaScript](https://github.com/JoeORegan/JS-FlappyBird)
+- [Space Game JS](https://github.com/JoeORegan/JS-SpaceGame)
 - [Ninja Game JS](https://github.com/JoeORegan/JS-NinjaGame)
 - [Space Quest JS](https://github.com/JoeORegan/JS-SpaceQuest)
 

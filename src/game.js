@@ -29,6 +29,11 @@ export class Game {
         this.canvas = canvas;
         this.ctx = canvas.getContext("2d");
         this.input = new Input(canvas);
+
+        // CHANGED: use standalone player sprite file
+        this.playerImage = null;
+        this.playerW = 64;
+        this.playerH = 64;
         this.ship = new Ship(canvas.width * 0.15, canvas.height * 0.5);
 
         this.atlas = null;
@@ -62,8 +67,9 @@ export class Game {
     }
 
     async start() {
-        const [atlas, spacedust, galaxy, planetsunrise, anomaly1, anomaly2] = await Promise.all([
+        const [atlas, playerImage, spacedust, galaxy, planetsunrise, anomaly1, anomaly2] = await Promise.all([
             loadPlistAtlas("./assets/images/sprites/spritesheet.png", "./assets/images/sprites/Sprites.plist"),
+            loadImage("./assets/images/sprites/player.png"), // CHANGED
             loadImage("./assets/images/backgrounds/bg_front_spacedust.png"),
             loadImage("./assets/images/backgrounds/bg_galaxy.png"),
             loadImage("./assets/images/backgrounds/bg_planetsunrise.png"),
@@ -85,6 +91,10 @@ export class Game {
             this.audio.loadEffect("shipHit", "./assets/audio/sfx/shake.wav", { volume: 0.75, poolSize: 4 })
         ]);
         this.musicLoaded = true;
+
+        this.playerImage = playerImage; // CHANGED
+        this.playerW = playerImage.width || 64; // CHANGED
+        this.playerH = playerImage.height || 64; // CHANGED
 
         this.starField.addEmitter(new StarEmitter(s1, this.canvas.width, this.canvas.height));
         this.starField.addEmitter(new StarEmitter(s2, this.canvas.width, this.canvas.height));
@@ -151,14 +161,14 @@ export class Game {
     }
 
     getShipAABB() {
-        const frameName = this.ship.getCurrentFrame();
-        const f = this.atlas.frames[frameName];
-        const raw = f?.frame ?? f;
-        const fw = raw?.w ?? raw?.width ?? 64;
-        const fh = raw?.h ?? raw?.height ?? 64;
-        const w = fw * this.ship.scale;
-        const h = fh * this.ship.scale;
-        return { left: this.ship.x - w * 0.5, top: this.ship.y - h * 0.5, right: this.ship.x + w * 0.5, bottom: this.ship.y + h * 0.5 };
+        const w = this.playerW * this.ship.scale; // CHANGED
+        const h = this.playerH * this.ship.scale; // CHANGED
+        return {
+            left: this.ship.x - w * 0.5,
+            top: this.ship.y - h * 0.5,
+            right: this.ship.x + w * 0.5,
+            bottom: this.ship.y + h * 0.5
+        };
     }
 
     loop(timestamp) {
@@ -195,7 +205,7 @@ export class Game {
 
         if (anyGesture) {
             this.unlockAudioIfNeeded();
-            if (this.audio.enabled) this.audio.playMusic(); // retry in case browser delayed first play
+            if (this.audio.enabled) this.audio.playMusic();
         }
 
         if (this.state !== GameState.PLAYING) {
@@ -259,15 +269,14 @@ export class Game {
         if (this.asteroidField) this.asteroidField.draw(ctx);
         if (this.lasers) this.lasers.draw(ctx);
 
-        if (this.atlas) {
+        // CHANGED: draw standalone player sprite instead of atlas ship frame
+        if (this.playerImage) {
             const nowSec = performance.now() / 1000;
             const blink = nowSec < this.shipInvulnUntil && Math.floor(nowSec * 20) % 2 === 0;
             if (!blink && this.state === GameState.PLAYING) {
-                drawFrame(ctx, this.atlas.image, this.atlas.frames, this.ship.getCurrentFrame(), this.ship.x, this.ship.y, {
-                    scale: this.ship.scale,
-                    anchorX: 0.5,
-                    anchorY: 0.5
-                });
+                const w = this.playerW * this.ship.scale;
+                const h = this.playerH * this.ship.scale;
+                ctx.drawImage(this.playerImage, this.ship.x - w * 0.5, this.ship.y - h * 0.5, w, h);
             }
         }
 
