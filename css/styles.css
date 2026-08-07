@@ -61,6 +61,7 @@ body {
     display: flex;
     gap: 8px;
     align-items: center;
+    flex-wrap: wrap;
 }
 
 .topnav {
@@ -94,11 +95,11 @@ body {
 }
 
 .fs-toggle {
-    display: none;
+    display: inline-block;
 }
 
 .reset-btn {
-    display: none;
+    display: inline-block;
 }
 
 .page-content {
@@ -134,24 +135,29 @@ canvas {
 }
 
 .fs-hud {
-    position: absolute;
+    position: fixed;
     top: max(8px, env(safe-area-inset-top));
-    right: max(8px, env(safe-area-inset-right));
+    left: max(8px, env(safe-area-inset-left));
+    right: auto;
     display: none;
+    flex-direction: column;
+    align-items: flex-start;
     gap: 8px;
-    z-index: 50;
+    z-index: 9999;
     pointer-events: auto;
 }
 
 .fs-hud-btn {
     border: 1px solid rgba(255, 255, 255, 0.35);
-    background: rgba(10, 12, 20, 0.72);
+    background: rgba(10, 12, 20, 0.78);
     color: #fff;
     border-radius: 10px;
-    padding: 8px 10px;
+    padding: 10px 12px;
     font-size: 14px;
     line-height: 1;
     backdrop-filter: blur(4px);
+    min-width: 132px;
+    text-align: left;
 }
 
 .muted {
@@ -170,12 +176,6 @@ code {
     padding: 1px 6px;
 }
 
-@media (max-width: 1024px) {
-    .reset-btn {
-        display: inline-block;
-    }
-}
-
 @media (max-width: 768px) {
     .container {
         width: min(1280px, 98vw);
@@ -190,8 +190,9 @@ code {
     }
 
     .fs-hud-btn {
-        padding: 10px 12px;
+        padding: 11px 13px;
         font-size: 15px;
+        min-width: 144px;
     }
 }
 

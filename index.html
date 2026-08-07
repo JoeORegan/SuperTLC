@@ -22,6 +22,9 @@
         <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark/light theme">
           Theme
         </button>
+        <button id="audioToggleTop" class="theme-toggle" type="button" aria-label="Toggle music and sound">
+          Audio: On
+        </button>
         <button id="fsToggle" class="theme-toggle fs-toggle" type="button" aria-label="Toggle fullscreen">
           Fullscreen
         </button>
@@ -40,10 +43,12 @@
       <div class="canvas-wrap" id="gameWrap">
         <canvas id="game" width="1136" height="640" tabindex="0" aria-label="Superhero Game canvas"></canvas>
 
-        <!-- Fullscreen overlay controls -->
         <div id="fsHud" class="fs-hud" aria-hidden="true">
           <button id="fsMenuBtn" class="fs-hud-btn" type="button" aria-label="Exit fullscreen and open menu">
             Menu
+          </button>
+          <button id="fsAudioBtn" class="fs-hud-btn" type="button" aria-label="Toggle music and sound">
+            Audio: On
           </button>
           <button id="fsExitBtn" class="fs-hud-btn" type="button" aria-label="Exit fullscreen">
             Exit Fullscreen
@@ -57,10 +62,10 @@
       <ul>
         <li><b>Move:</b> <code>W</code>/<code>A</code>/<code>S</code>/<code>D</code> or arrows</li>
         <li><b>Fire:</b> <code>Space</code> or hold touch</li>
-        <li><b>Toggle Audio:</b> <code>M</code></li>
+        <li><b>Audio:</b> <code>M</code> or <code>Audio</code> buttons</li>
         <li><b>Debug:</b> <code>P</code></li>
-        <li><b>Fullscreen:</b> tap <code>Fullscreen</code>; tap <code>Menu</code> or <code>Exit Fullscreen</code> to
-          leave</li>
+        <li><b>Fullscreen:</b> <code>Fullscreen</code> button, then use top-left <code>Menu</code> /
+          <code>Exit Fullscreen</code></li>
         <li><b>Restart:</b> <code>R</code>/<code>Enter</code> or <code>Restart</code> button</li>
       </ul>
     </section>
@@ -70,11 +75,13 @@
     (function () {
       const root = document.documentElement;
       const themeBtn = document.getElementById("themeToggle");
+      const audioTopBtn = document.getElementById("audioToggleTop");
       const fsBtn = document.getElementById("fsToggle");
       const resetBtn = document.getElementById("resetBtn");
       const gameWrap = document.getElementById("gameWrap");
       const fsHud = document.getElementById("fsHud");
       const fsMenuBtn = document.getElementById("fsMenuBtn");
+      const fsAudioBtn = document.getElementById("fsAudioBtn");
       const fsExitBtn = document.getElementById("fsExitBtn");
 
       const savedTheme = localStorage.getItem("superhero-theme");
@@ -102,10 +109,21 @@
         fsHud.setAttribute("aria-hidden", show ? "false" : "true");
       }
 
+      function getAudioEnabled() {
+        return !!window.__GAME_API__?.isAudioEnabled?.();
+      }
+
+      function setAudioButtonLabels() {
+        const on = getAudioEnabled();
+        const label = `Audio: ${on ? "On" : "Off"}`;
+        audioTopBtn.textContent = label;
+        fsAudioBtn.textContent = label;
+      }
+
       function updateFsButton() {
         const inFs = isFullscreenNow();
         fsBtn.textContent = inFs ? "Exit Fullscreen" : "Fullscreen";
-        fsBtn.style.display = isMobileLike() ? "inline-block" : "none";
+        fsBtn.style.display = "inline-block";
         setHudVisibility(inFs && isMobileLike());
       }
 
@@ -128,9 +146,7 @@
           if (screen.orientation && screen.orientation.lock) {
             await screen.orientation.lock("landscape");
           }
-        } catch {
-          // Not supported on all browsers/devices; ignore.
-        }
+        } catch { }
       }
 
       async function tryUnlockOrientation() {
@@ -138,9 +154,7 @@
           if (screen.orientation && screen.orientation.unlock) {
             screen.orientation.unlock();
           }
-        } catch {
-          // ignore
-        }
+        } catch { }
       }
 
       async function enterFullscreen() {
@@ -156,6 +170,13 @@
       async function toggleFullscreen() {
         if (!isFullscreenNow()) await enterFullscreen();
         else await exitFullscreen();
+      }
+
+      function toggleAudio() {
+        if (window.__GAME_API__?.toggleAudio) {
+          window.__GAME_API__.toggleAudio();
+          setAudioButtonLabels();
+        }
       }
 
       fsBtn?.addEventListener("click", async () => {
@@ -190,6 +211,9 @@
         }
       });
 
+      audioTopBtn?.addEventListener("click", toggleAudio);
+      fsAudioBtn?.addEventListener("click", toggleAudio);
+
       document.addEventListener("fullscreenchange", updateFsButton);
       document.addEventListener("webkitfullscreenchange", updateFsButton);
       document.addEventListener("MSFullscreenChange", updateFsButton);
@@ -198,14 +222,14 @@
 
       updateFsButton();
 
-      // Optional: expose helpers for game overlay button usage from canvas code if needed
-      window.__GAME_FULLSCREEN__ = {
-        isFullscreenNow,
-        exitFullscreen
-      };
+      const t = setInterval(() => {
+        if (window.__GAME_API__) {
+          setAudioButtonLabels();
+          clearInterval(t);
+        }
+      }, 100);
 
-      // Keep reset button mobile-visible as before
-      if (resetBtn) resetBtn.style.display = isMobileLike() ? "inline-block" : "";
+      if (resetBtn) resetBtn.style.display = "inline-block";
     })();
   </script>
 
