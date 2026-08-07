@@ -2,4 +2,9 @@ import { Game } from "./game.js";
 
 const canvas = document.getElementById("game");
 const game = new Game(canvas);
-game.start();
+await game.start();
+
+const resetBtn = document.getElementById("resetBtn");
+resetBtn?.addEventListener("click", () => {
+  game.resetRound();
+});

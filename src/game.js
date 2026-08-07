@@ -1,7 +1,6 @@
 import { Input } from "./input.js";
 import { Ship } from "./entities/Ship.js";
 import { loadPlistAtlas } from "./gfx/loadPlistAtlas.js";
-import { drawFrame } from "./gfx/plistAtlas.js";
 import { ParallaxLayer, ParallaxSystem, loadImage } from "./gfx/parallax.js";
 import { StarField, StarEmitter, loadStarEmitterConfig } from "./fx/stars.js";
 import { AsteroidField } from "./entities/AsteroidField.js";
@@ -30,7 +29,6 @@ export class Game {
         this.ctx = canvas.getContext("2d");
         this.input = new Input(canvas);
 
-        // CHANGED: use standalone player sprite file
         this.playerImage = null;
         this.playerW = 64;
         this.playerH = 64;
@@ -56,6 +54,12 @@ export class Game {
         this.roundDurationSec = 30;
         this.gameEndAtSec = 0;
         this.state = GameState.PLAYING;
+
+        this.touchActive = false;
+        this.touchX = 0;
+        this.touchY = 0;
+        this.autoFireTimer = 0;
+        this.autoFireInterval = 0.18;
     }
 
     keyPressedAny(...keys) {
@@ -69,7 +73,7 @@ export class Game {
     async start() {
         const [atlas, playerImage, spacedust, galaxy, planetsunrise, anomaly1, anomaly2] = await Promise.all([
             loadPlistAtlas("./assets/images/sprites/spritesheet.png", "./assets/images/sprites/Sprites.plist"),
-            loadImage("./assets/images/sprites/player.png"), // CHANGED
+            loadImage("./assets/images/sprites/player.png"),
             loadImage("./assets/images/backgrounds/bg_front_spacedust.png"),
             loadImage("./assets/images/backgrounds/bg_galaxy.png"),
             loadImage("./assets/images/backgrounds/bg_planetsunrise.png"),
@@ -92,9 +96,9 @@ export class Game {
         ]);
         this.musicLoaded = true;
 
-        this.playerImage = playerImage; // CHANGED
-        this.playerW = playerImage.width || 64; // CHANGED
-        this.playerH = playerImage.height || 64; // CHANGED
+        this.playerImage = playerImage;
+        this.playerW = playerImage.width || 64;
+        this.playerH = playerImage.height || 64;
 
         this.starField.addEmitter(new StarEmitter(s1, this.canvas.width, this.canvas.height));
         this.starField.addEmitter(new StarEmitter(s2, this.canvas.width, this.canvas.height));
@@ -129,8 +133,57 @@ export class Game {
         this.parallax.addLayer(new ParallaxLayer({ image: anomaly2, y: this.canvas.height * 0.70, speed: 0.075, scale: 1.0, alpha: 0.9, gap: 900 }));
         this.parallax.addLayer(new ParallaxLayer({ image: spacedust, y: (this.canvas.height - spacedust.height) / 2, speed: 0.1, scale: 1.0, alpha: 1.0, gap: 0 }));
 
+        this.setupMobileInput();
         this.resetRound();
         requestAnimationFrame((t) => this.loop(t));
+    }
+
+    setupMobileInput() {
+        const c = this.canvas;
+        c.style.touchAction = "none";
+
+        const toCanvasPos = (clientX, clientY) => {
+            const rect = c.getBoundingClientRect();
+            const scaleX = c.width / rect.width;
+            const scaleY = c.height / rect.height;
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        };
+
+        c.addEventListener("pointerdown", (e) => {
+            if (e.pointerType === "touch" || e.pointerType === "pen") {
+                e.preventDefault();
+                c.setPointerCapture?.(e.pointerId);
+                const p = toCanvasPos(e.clientX, e.clientY);
+                this.touchActive = true;
+                this.touchX = p.x;
+                this.touchY = p.y;
+                this.unlockAudioIfNeeded();
+            }
+        }, { passive: false });
+
+        c.addEventListener("pointermove", (e) => {
+            if ((e.pointerType === "touch" || e.pointerType === "pen") && this.touchActive) {
+                e.preventDefault();
+                const p = toCanvasPos(e.clientX, e.clientY);
+                this.touchX = p.x;
+                this.touchY = p.y;
+            }
+        }, { passive: false });
+
+        const endTouch = (e) => {
+            if (e.pointerType === "touch" || e.pointerType === "pen") {
+                e.preventDefault();
+                this.touchActive = false;
+                this.autoFireTimer = 0;
+                c.releasePointerCapture?.(e.pointerId);
+            }
+        };
+
+        c.addEventListener("pointerup", endTouch, { passive: false });
+        c.addEventListener("pointercancel", endTouch, { passive: false });
     }
 
     unlockAudioIfNeeded() {
@@ -161,8 +214,8 @@ export class Game {
     }
 
     getShipAABB() {
-        const w = this.playerW * this.ship.scale; // CHANGED
-        const h = this.playerH * this.ship.scale; // CHANGED
+        const w = this.playerW * this.ship.scale;
+        const h = this.playerH * this.ship.scale;
         return {
             left: this.ship.x - w * 0.5,
             top: this.ship.y - h * 0.5,
@@ -199,9 +252,14 @@ export class Game {
             firePressed ||
             this.input.wasPressed("w") ||
             this.input.wasPressed("s") ||
+            this.input.wasPressed("a") ||
+            this.input.wasPressed("d") ||
             this.input.wasPressed("arrowup") ||
             this.input.wasPressed("arrowdown") ||
-            this.input.wasPressed("enter");
+            this.input.wasPressed("arrowleft") ||
+            this.input.wasPressed("arrowright") ||
+            this.input.wasPressed("enter") ||
+            this.touchActive;
 
         if (anyGesture) {
             this.unlockAudioIfNeeded();
@@ -214,14 +272,29 @@ export class Game {
             return;
         }
 
+        this.parallax.update(dt, this.worldSpeed);
+        this.starField.update(dt);
+
+        this.ship.update(dt, this.input, this.canvas.width, this.canvas.height);
+
+        if (this.touchActive) {
+            this.ship.x = Math.max(0, Math.min(this.canvas.width, this.touchX));
+            this.ship.y = Math.max(0, Math.min(this.canvas.height, this.touchY));
+
+            this.autoFireTimer += dt;
+            while (this.autoFireTimer >= this.autoFireInterval) {
+                this.autoFireTimer -= this.autoFireInterval;
+                if (this.lasers) {
+                    this.lasers.fire(this.ship.x, this.ship.y, this.ship.scale ?? 1);
+                    this.audio.playEffect("laser");
+                }
+            }
+        }
+
         if (this.lasers && firePressed) {
             this.lasers.fire(this.ship.x, this.ship.y, this.ship.scale ?? 1);
             this.audio.playEffect("laser");
         }
-
-        this.parallax.update(dt, this.worldSpeed);
-        this.starField.update(dt);
-        this.ship.update(dt, this.input, this.canvas.width, this.canvas.height);
 
         const nowSec = performance.now() / 1000;
         if (this.asteroidField) this.asteroidField.update(dt, nowSec, this.canvas.width, this.canvas.height);
@@ -269,7 +342,6 @@ export class Game {
         if (this.asteroidField) this.asteroidField.draw(ctx);
         if (this.lasers) this.lasers.draw(ctx);
 
-        // CHANGED: draw standalone player sprite instead of atlas ship frame
         if (this.playerImage) {
             const nowSec = performance.now() / 1000;
             const blink = nowSec < this.shipInvulnUntil && Math.floor(nowSec * 20) % 2 === 0;

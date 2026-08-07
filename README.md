@@ -1,4 +1,4 @@
-# Space Game JS
+# Super Hero Game
 
 ![GitHub repo size](https://img.shields.io/github/repo-size/JoeORegan/SuperTLC?style=flat-square)
 ![GitHub last commit](https://img.shields.io/github/last-commit/JoeORegan/SuperTLC?style=flat-square)

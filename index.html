@@ -4,10 +4,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="author" content="Joe O'Regan" />
-  <meta name="description" content="Space Game JavaScript" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Superhero Game JavaScript" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Superhero Game</title>
   <link rel="stylesheet" href="./css/styles.css" />
-  <title>Super Siobhan</title>
 </head>
 
 <body>
@@ -15,73 +15,115 @@
     <div class="container topbar-row">
       <nav class="topnav" aria-label="Main navigation">
         <a class="nav-link" href="https://joeoregan.github.io/">Home</a>
-        <a class="nav-link active" href="./">Super Siobhan</a>
+        <a class="nav-link active" href="./">Superhero Game</a>
       </nav>
 
-      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark/light theme">
-        Toggle Theme
-      </button>
+      <div class="topbar-actions">
+        <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark/light theme">
+          Theme
+        </button>
+        <button id="fsToggle" class="theme-toggle fs-toggle" type="button" aria-label="Toggle fullscreen">
+          Fullscreen
+        </button>
+        <button id="resetBtn" class="theme-toggle reset-btn" type="button" aria-label="Restart game">
+          Restart
+        </button>
+      </div>
     </div>
   </header>
 
   <main class="container page-content">
     <section class="page-panel">
-      <h1>Super Siobhan</h1>
+      <h1>Superhero Game</h1>
       <p class="muted">Arcade shooter prototype</p>
 
-      <div class="canvas-wrap">
-        <canvas id="game" width="1136" height="640" tabindex="0" aria-label="Space game canvas"></canvas>
+      <div class="canvas-wrap" id="gameWrap">
+        <canvas id="game" width="1136" height="640" tabindex="0" aria-label="Superhero Game canvas"></canvas>
       </div>
     </section>
 
     <section class="page-panel">
       <h2>Controls</h2>
       <ul>
-        <li><b>Move:</b> <code>ASDW</code> or <code>↑ ↓ ← →</code></li>
-        <li><b>Fire:</b> <code>Space</code></li>
-        <li><b>Restart:</b> <code>R</code> / <code>Enter</code></li>
+        <li><b>Move:</b> <code>W</code>/<code>A</code>/<code>S</code>/<code>D</code> or arrows</li>
+        <li><b>Fire:</b> <code>Space</code> or hold touch</li>
         <li><b>Toggle Audio:</b> <code>M</code></li>
         <li><b>Debug:</b> <code>P</code></li>
-        <li><b>World Speed:</b> <code>K</code>/<code>L</code></li>
+        <li><b>Fullscreen:</b> <code>Fullscreen</code> button</li>
+        <li><b>Restart:</b> <code>R</code>/<code>Enter</code> or <code>Restart</code> button</li>
       </ul>
     </section>
   </main>
 
   <script>
     (function () {
-      const saved = localStorage.getItem("sq-theme");
-      if (saved === "light" || saved === "dark") {
-        document.documentElement.setAttribute("data-theme", saved);
+      const root = document.documentElement;
+      const themeBtn = document.getElementById("themeToggle");
+      const fsBtn = document.getElementById("fsToggle");
+      const gameWrap = document.getElementById("gameWrap");
+
+      const savedTheme = localStorage.getItem("superhero-theme");
+      if (savedTheme === "light" || savedTheme === "dark") {
+        root.setAttribute("data-theme", savedTheme);
       }
 
-      const btn = document.getElementById("themeToggle");
-      btn.addEventListener("click", function () {
-        const current = document.documentElement.getAttribute("data-theme") || "dark";
+      themeBtn?.addEventListener("click", function () {
+        const current = root.getAttribute("data-theme") || "dark";
         const next = current === "dark" ? "light" : "dark";
-        document.documentElement.setAttribute("data-theme", next);
-        localStorage.setItem("sq-theme", next);
+        root.setAttribute("data-theme", next);
+        localStorage.setItem("superhero-theme", next);
       });
+
+      function isMobileLike() {
+        return window.matchMedia("(max-width: 1024px)").matches || navigator.maxTouchPoints > 0;
+      }
+
+      function updateFsButton() {
+        const inFs = !!document.fullscreenElement || !!document.webkitFullscreenElement || !!document.msFullscreenElement;
+        fsBtn.textContent = inFs ? "Exit Fullscreen" : "Fullscreen";
+        fsBtn.style.display = isMobileLike() ? "inline-block" : "none";
+      }
+
+      async function requestFullscreenSafe(el) {
+        if (el.requestFullscreen) return el.requestFullscreen();
+        if (el.webkitRequestFullscreen) return el.webkitRequestFullscreen();
+        if (el.msRequestFullscreen) return el.msRequestFullscreen();
+        throw new Error("Fullscreen API not supported");
+      }
+
+      async function exitFullscreenSafe() {
+        if (document.exitFullscreen) return document.exitFullscreen();
+        if (document.webkitExitFullscreen) return document.webkitExitFullscreen();
+        if (document.msExitFullscreen) return document.msExitFullscreen();
+        throw new Error("Exit Fullscreen API not supported");
+      }
+
+      async function toggleFullscreen() {
+        const inFs = !!document.fullscreenElement || !!document.webkitFullscreenElement || !!document.msFullscreenElement;
+        if (!inFs) await requestFullscreenSafe(gameWrap);
+        else await exitFullscreenSafe();
+      }
+
+      fsBtn?.addEventListener("click", async () => {
+        try {
+          await toggleFullscreen();
+        } catch (err) {
+          console.error("Fullscreen toggle failed:", err);
+        } finally {
+          updateFsButton();
+        }
+      });
+
+      document.addEventListener("fullscreenchange", updateFsButton);
+      document.addEventListener("webkitfullscreenchange", updateFsButton);
+      document.addEventListener("MSFullscreenChange", updateFsButton);
+      window.addEventListener("resize", updateFsButton);
+      window.addEventListener("orientationchange", updateFsButton);
+      updateFsButton();
     })();
   </script>
 
-  <script type="module">
-    import { Game } from "./src/game.js";
-
-    const canvas = document.getElementById("game");
-
-    const focusCanvas = () => canvas.focus({ preventScroll: true });
-    canvas.addEventListener("pointerdown", focusCanvas);
-    window.addEventListener("load", focusCanvas);
-
-    window.addEventListener("keydown", (e) => {
-      if (["ArrowUp", "ArrowDown", " ", "Spacebar"].includes(e.key)) {
-        e.preventDefault();
-      }
-    }, { passive: false });
-
-    const game = new Game(canvas);
-    game.start();
-  </script>
+  <script type="module" src="./src/main.js"></script>
 </body>
 
 </html>
